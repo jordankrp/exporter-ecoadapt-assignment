@@ -30,6 +30,7 @@ import asyncio
 import logging
 from autobahn.asyncio.websocket import WebSocketClientProtocol, WebSocketClientFactory
 from ecoadapt import run_sync_client
+from random import randrange
 
 # configure the client logging
 FORMAT = (
@@ -40,7 +41,27 @@ logging.basicConfig(format=FORMAT)
 log = logging.getLogger()
 log.setLevel(logging.INFO)
 
-def generate_ecoadapt_mock_data():
+def generate_register_data(register, length):
+    output_array = []
+    if register == 0:
+        output_array = [514]
+    elif register == 1:
+        output_array = [2]
+    elif register == 2:
+        output_array = [30, 44285, 17639]
+    elif register == 244:
+        for i in range(length):
+            output_array.append(0)
+    elif register == 352 or register == 388 or register == 424:
+        for i in range(int(length/2)):
+            output_array.append(randrange(15000, 55000))
+        for j in range(int(length/2)):
+            output_array.append(0)
+    else:
+        output_array = [0]
+    return output_array
+
+def ecoadapt_mock_data():
 
     read_registers = [
         (0, 1),
@@ -51,10 +72,13 @@ def generate_ecoadapt_mock_data():
         (388, 12),
         (424, 12),
     ]
+
+    output_string = ""
     for r in read_registers:
         #resp = client.read_input_registers(r[0], r[1], unit=UNIT)
         #log.info("%s: %s: %s" % (r, "ReadRegisterResponse (" + str(r[1]) + ")", "[514]"))
-        return str(r)
+        output_string += f"\n{r}: ReadRegisterResponse ({r[1]}): {generate_register_data(r[0], r[1])}"
+    return output_string
 
 class MyClientProtocol(WebSocketClientProtocol):
 
@@ -80,7 +104,7 @@ class MyClientProtocol(WebSocketClientProtocol):
 
         def send_ecoadapt_data():
             self.sendMessage("Hello from client".encode('utf-8'))
-            self.sendMessage(generate_ecoadapt_mock_data().encode('utf-8'))
+            self.sendMessage(ecoadapt_mock_data().encode('utf-8'))
             self.factory.loop.call_later(1, send_ecoadapt_data)
         
         # start sending messages every second ..
