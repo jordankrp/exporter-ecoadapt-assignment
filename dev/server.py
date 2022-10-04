@@ -39,13 +39,13 @@ class MyServerProtocol(WebSocketServerProtocol):
     def onConnect(self, request):
         print("Client connecting: {0}".format(request.peer))
         # TODO Return a protocol here that matches the sender
-        #return WebSocketServerFactory.setProtocolOptions()
         return None
 
     async def onOpen(self):
         print("WebSocket connection open.")
 
     def onMessage(self, payload, isBinary):
+        # Called whenever a new WebSocket message is receives
         if isBinary:
             print("Binary message received: {0} bytes".format(len(payload)))
         else:

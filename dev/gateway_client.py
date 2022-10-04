@@ -41,49 +41,11 @@ logging.basicConfig(format=FORMAT)
 log = logging.getLogger()
 log.setLevel(logging.INFO)
 
-def generate_register_data(register, length):
-    output_array = []
-    if register == 0:
-        output_array = [514]
-    elif register == 1:
-        output_array = [2]
-    elif register == 2:
-        output_array = [30, 44285, 17639]
-    elif register == 244:
-        for i in range(length):
-            output_array.append(0)
-    elif register == 352 or register == 388 or register == 424:
-        for i in range(int(length/2)):
-            output_array.append(randrange(15000, 55000))
-        for j in range(int(length/2)):
-            output_array.append(0)
-    else:
-        output_array = [0]
-    return output_array
-
-def ecoadapt_mock_data():
-
-    read_registers = [
-        (0, 1),
-        (1, 1),
-        (2, 3),
-        (244, 12),
-        (352, 12),
-        (388, 12),
-        (424, 12),
-    ]
-
-    output_string = ""
-    for r in read_registers:
-        #resp = client.read_input_registers(r[0], r[1], unit=UNIT)
-        #log.info("%s: %s: %s" % (r, "ReadRegisterResponse (" + str(r[1]) + ")", "[514]"))
-        output_string += f"\n{r}: ReadRegisterResponse ({r[1]}): {generate_register_data(r[0], r[1])}"
-    return output_string
-
 class MyClientProtocol(WebSocketClientProtocol):
 
     def onConnect(self, response):
         print("Server connected: {0}".format(response.peer))
+        return None
 
     def onConnecting(self, transport_details):
         print("Connecting; transport details: {}".format(transport_details))
@@ -101,13 +63,57 @@ class MyClientProtocol(WebSocketClientProtocol):
         # start sending messages every second ..
         hello()
         """
+        def generate_register_data(register, length):
+            # Generates random register data
+            # With hardware connected:
+            # resp = client.read_input_registers(register, length, unit=UNIT)
+            # output_array = resp.registers
+
+            output_array = []
+            if register == 0:
+                output_array = [514]
+            elif register == 1:
+                output_array = [2]
+            elif register == 2:
+                output_array = [30, 44285, 17639]
+            elif register == 244:
+                for i in range(length):
+                    output_array.append(0)
+            elif register == 352 or register == 388 or register == 424:
+                for i in range(int(length/2)):
+                    output_array.append(randrange(15000, 55000))
+                for j in range(int(length/2)):
+                    output_array.append(0)
+            else:
+                output_array = [0]
+            return output_array
+
+        def ecoadapt_mock_data():
+            # Reads registers and length of each register and generates random data
+
+            read_registers = [
+                (0, 1),
+                (1, 1),
+                (2, 3),
+                (244, 12),
+                (352, 12),
+                (388, 12),
+                (424, 12),
+            ]
+
+            output_string = ""
+            for r in read_registers:
+                output_string += f"\n{r}: ReadRegisterResponse ({r[1]}): {generate_register_data(r[0], r[1])}"
+            return output_string
 
         def send_ecoadapt_data():
+            # The client (Raspberry Pi bridge / gateway) sends the Eco-Adapt data to the backend server
+            # as an encoded WebSocket message every 1s
             self.sendMessage("Hello from client".encode('utf-8'))
             self.sendMessage(ecoadapt_mock_data().encode('utf-8'))
             self.factory.loop.call_later(1, send_ecoadapt_data)
         
-        # start sending messages every second ..
+        # start sending messages every second ...
         send_ecoadapt_data()
 
     def onMessage(self, payload, isBinary):
