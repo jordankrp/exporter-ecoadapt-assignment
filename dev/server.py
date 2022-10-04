@@ -34,8 +34,8 @@ import argparse
 from autobahn.asyncio.websocket import WebSocketServerProtocol, WebSocketServerFactory
 from ecoadapt import run_sync_client
 
-class MyServerProtocol(WebSocketServerProtocol):
 
+class MyServerProtocol(WebSocketServerProtocol):
     def onConnect(self, request):
         print("Client connecting: {0}".format(request.peer))
         # TODO Return a protocol here that matches the sender

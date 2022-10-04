@@ -41,8 +41,8 @@ logging.basicConfig(format=FORMAT)
 log = logging.getLogger()
 log.setLevel(logging.INFO)
 
-class MyClientProtocol(WebSocketClientProtocol):
 
+class MyClientProtocol(WebSocketClientProtocol):
     def onConnect(self, response):
         print("Server connected: {0}".format(response.peer))
         return None
@@ -54,15 +54,6 @@ class MyClientProtocol(WebSocketClientProtocol):
     def onOpen(self):
         print("WebSocket connection open.")
 
-        """
-        def hello():
-            self.sendMessage("Hello, world!".encode('utf8'))
-            self.sendMessage(b"\x00\x01\x03\x04", isBinary=True)
-            self.factory.loop.call_later(1, hello)
-
-        # start sending messages every second ..
-        hello()
-        """
         def generate_register_data(register, length):
             # Generates random register data
             # With hardware connected:
@@ -80,9 +71,9 @@ class MyClientProtocol(WebSocketClientProtocol):
                 for i in range(length):
                     output_array.append(0)
             elif register == 352 or register == 388 or register == 424:
-                for i in range(int(length/2)):
+                for i in range(int(length / 2)):
                     output_array.append(randrange(15000, 55000))
-                for j in range(int(length/2)):
+                for j in range(int(length / 2)):
                     output_array.append(0)
             else:
                 output_array = [0]
@@ -109,10 +100,10 @@ class MyClientProtocol(WebSocketClientProtocol):
         def send_ecoadapt_data():
             # The client (Raspberry Pi bridge / gateway) sends the Eco-Adapt data to the backend server
             # as an encoded WebSocket message every 1s
-            self.sendMessage("Hello from client".encode('utf-8'))
-            self.sendMessage(ecoadapt_mock_data().encode('utf-8'))
+            self.sendMessage("Hello from client".encode("utf-8"))
+            self.sendMessage(ecoadapt_mock_data().encode("utf-8"))
             self.factory.loop.call_later(1, send_ecoadapt_data)
-        
+
         # start sending messages every second ...
         send_ecoadapt_data()
 
@@ -120,18 +111,18 @@ class MyClientProtocol(WebSocketClientProtocol):
         if isBinary:
             print("Binary message received: {0} bytes".format(len(payload)))
         else:
-            print("Text message received: {0}".format(payload.decode('utf8')))
+            print("Text message received: {0}".format(payload.decode("utf8")))
 
     def onClose(self, wasClean, code, reason):
         print("WebSocket connection closed: {0}".format(reason))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     factory = WebSocketClientFactory("ws://127.0.0.1:9000")
     factory.protocol = MyClientProtocol
 
     loop = asyncio.get_event_loop()
-    coro = loop.create_connection(factory, '127.0.0.1', 9000)
+    coro = loop.create_connection(factory, "127.0.0.1", 9000)
     loop.run_until_complete(coro)
     loop.run_forever()
     loop.close()
