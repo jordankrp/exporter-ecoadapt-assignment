@@ -27,9 +27,34 @@
 # This client application reads the voltage and frequency from the Eco-Adapt sensor and sends it to the backend server every second.
 
 import asyncio
-
+import logging
 from autobahn.asyncio.websocket import WebSocketClientProtocol, WebSocketClientFactory
 from ecoadapt import run_sync_client
+
+# configure the client logging
+FORMAT = (
+    "%(asctime)-15s %(threadName)-15s "
+    "%(levelname)-8s %(module)-15s:%(lineno)-8s %(message)s"
+)
+logging.basicConfig(format=FORMAT)
+log = logging.getLogger()
+log.setLevel(logging.INFO)
+
+def generate_ecoadapt_mock_data():
+
+    read_registers = [
+        (0, 1),
+        (1, 1),
+        (2, 3),
+        (244, 12),
+        (352, 12),
+        (388, 12),
+        (424, 12),
+    ]
+    for r in read_registers:
+        #resp = client.read_input_registers(r[0], r[1], unit=UNIT)
+        #log.info("%s: %s: %s" % (r, "ReadRegisterResponse (" + str(r[1]) + ")", "[514]"))
+        return str(r)
 
 class MyClientProtocol(WebSocketClientProtocol):
 
@@ -55,7 +80,7 @@ class MyClientProtocol(WebSocketClientProtocol):
 
         def send_ecoadapt_data():
             self.sendMessage("Hello from client".encode('utf-8'))
-            self.sendMessage(run_sync_client().encode('utf-8'))
+            self.sendMessage(generate_ecoadapt_mock_data().encode('utf-8'))
             self.factory.loop.call_later(1, send_ecoadapt_data)
         
         # start sending messages every second ..
