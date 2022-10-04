@@ -29,7 +29,6 @@
 import asyncio
 import logging
 from autobahn.asyncio.websocket import WebSocketClientProtocol, WebSocketClientFactory
-from ecoadapt import run_sync_client
 from random import randrange
 
 # configure the client logging
@@ -98,8 +97,7 @@ class MyClientProtocol(WebSocketClientProtocol):
             return output_string
 
         def send_ecoadapt_data():
-            # The client (Raspberry Pi bridge / gateway) sends the Eco-Adapt data to the backend server
-            # as an encoded WebSocket message every 1s
+            # The client (Raspberry Pi bridge / gateway) sends the Eco-Adapt data to the backend server as an encoded WebSocket message every 1s
             self.sendMessage("Hello from client".encode("utf-8"))
             self.sendMessage(ecoadapt_mock_data().encode("utf-8"))
             self.factory.loop.call_later(1, send_ecoadapt_data)

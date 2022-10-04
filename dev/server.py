@@ -32,7 +32,6 @@ import asyncio
 import argparse
 
 from autobahn.asyncio.websocket import WebSocketServerProtocol, WebSocketServerFactory
-from ecoadapt import run_sync_client
 
 
 class MyServerProtocol(WebSocketServerProtocol):
