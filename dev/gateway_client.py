@@ -28,13 +28,13 @@
 
 import asyncio
 import logging
-import time
 from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 from autobahn.asyncio.websocket import WebSocketClientProtocol, WebSocketClientFactory
 from random import randrange
 
-# Eco-Adapt IP address
+# Eco-Adapt IP address and unit
 ADDRESS = "169.254.20.1"
+UNIT = 0x1
 
 # configure the gateway client logging
 FORMAT = (
@@ -47,11 +47,9 @@ log.setLevel(logging.INFO)
 
 
 class MyClientProtocol(WebSocketClientProtocol):
-
     def read_ecoadapt_data(self, modbus_client):
         # Reads the Eco-Adapt data
-        UNIT = 0x1
-        
+
         read_registers = [
             (0, 1),
             (1, 1),
@@ -63,15 +61,30 @@ class MyClientProtocol(WebSocketClientProtocol):
         ]
 
         output_string = ""
-        for r in read_registers:
-            resp = modbus_client.read_input_registers(r[0], r[1], unit=UNIT)
-            output_string += f"\n{r}: ReadRegisterResponse ({resp}): {resp.registers}"
-        
+        if modbus_client.connect():
+            # MODBUS client connection established, hardware is connected
+            log.info(
+                "Hardware detected, sending data from reading registers via MODBUS"
+            )
+            for r in read_registers:
+                # Read real input registers from hardware
+                resp = modbus_client.read_input_registers(r[0], r[1], unit=UNIT)
+                output_string += (
+                    f"\n{r}: ReadRegisterResponse ({resp}): {resp.registers}"
+                )
+            log.info("Closing MODBUS client")
+            modbus_client.close()
+        else:
+            # MODBUS client connection is false, no hardware with the specified IP is connected
+            log.info(f"Hardware with IP {ADDRESS} not detected, generating mock data")
+            for r in read_registers:
+                # Generate mock data
+                output_string += f"\n{r}: ReadRegisterResponse ({r[1]}): {self.generate_register_data(r[0], r[1])}"
+
         return output_string
 
     def generate_register_data(self, register, length):
         # Generates random register data
-
         output_array = []
         if register == 0:
             output_array = [514]
@@ -91,49 +104,19 @@ class MyClientProtocol(WebSocketClientProtocol):
             output_array = [0]
         return output_array
 
-    def ecoadapt_mock_data(self):
-        # Reads registers and length of each register and generates mock data
-
-        read_registers = [
-            (0, 1),
-            (1, 1),
-            (2, 3),
-            (244, 12),
-            (352, 12),
-            (388, 12),
-            (424, 12),
-        ]
-
-        output_string = ""
-        for r in read_registers:
-            # Immitate the way eporter-ecoadapt.py script is logging the data
-            output_string += f"\n{r}: ReadRegisterResponse ({r[1]}): {self.generate_register_data(r[0], r[1])}"
-        return output_string
-
     def send_ecoadapt_data(self):
         # Try to set up MODBUS client to read data from sensor
         log.info("Setting up MODBUS client")
         modbus_client = ModbusClient(ADDRESS, port=502)
         modbus_client.connect()
 
-        # If MODBUS client is connected, hardware is there
-        if modbus_client.connect():
-            # Read Eco-Adapt sensor data and send encoded WebSocket message every 1s
-            log.info("Hardware connected, sending real data")
-            self.sendMessage(self.read_ecoadapt_data(modbus_client).encode("utf-8"))
-            self.factory.loop.call_later(1, self.send_ecoadapt_data)
-            log.info("Closing MODBUS client")
-            modbus_client.close()
-        # Else  MODBUS client connect = False -> no hardware detected with the given IP
-        else:
-            # Generate mock data and send encoded WebSocket message every 1s
-            log.info(f"Hardware with IP {ADDRESS} not connected, sending mock data")
-            self.sendMessage(self.ecoadapt_mock_data().encode("utf-8"))
-            self.factory.loop.call_later(1, self.send_ecoadapt_data)
+        # Message is sent via MODBUS every 1s
+        self.sendMessage(self.read_ecoadapt_data(modbus_client).encode("utf-8"))
+        self.factory.loop.call_later(1, self.send_ecoadapt_data)
 
     def onConnect(self, response):
-            print("Server connected: {0}".format(response.peer))
-            return None
+        print("Server connected: {0}".format(response.peer))
+        return None
 
     def onConnecting(self, transport_details):
         print("Connecting; transport details: {}".format(transport_details))
