@@ -28,10 +28,15 @@
 
 import asyncio
 import logging
+import time
+from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 from autobahn.asyncio.websocket import WebSocketClientProtocol, WebSocketClientFactory
 from random import randrange
 
-# configure the client logging
+# Eco-Adapt IP address
+ADDRESS = "169.254.20.1"
+
+# configure the gateway client logging
 FORMAT = (
     "%(asctime)-15s %(threadName)-15s "
     "%(levelname)-8s %(module)-15s:%(lineno)-8s %(message)s"
@@ -42,9 +47,93 @@ log.setLevel(logging.INFO)
 
 
 class MyClientProtocol(WebSocketClientProtocol):
+
+    def read_ecoadapt_data(self, modbus_client):
+        # Reads the Eco-Adapt data
+        UNIT = 0x1
+        
+        read_registers = [
+            (0, 1),
+            (1, 1),
+            (2, 3),
+            (244, 12),
+            (352, 12),
+            (388, 12),
+            (424, 12),
+        ]
+
+        output_string = ""
+        for r in read_registers:
+            resp = modbus_client.read_input_registers(r[0], r[1], unit=UNIT)
+            output_string += f"\n{r}: ReadRegisterResponse ({resp}): {resp.registers}"
+        
+        return output_string
+
+    def generate_register_data(self, register, length):
+        # Generates random register data
+
+        output_array = []
+        if register == 0:
+            output_array = [514]
+        elif register == 1:
+            output_array = [2]
+        elif register == 2:
+            output_array = [30, 44285, 17639]
+        elif register == 244:
+            for i in range(length):
+                output_array.append(0)
+        elif register == 352 or register == 388 or register == 424:
+            for i in range(int(length / 2)):
+                output_array.append(randrange(15000, 55000))
+            for j in range(int(length / 2)):
+                output_array.append(0)
+        else:
+            output_array = [0]
+        return output_array
+
+    def ecoadapt_mock_data(self):
+        # Reads registers and length of each register and generates mock data
+
+        read_registers = [
+            (0, 1),
+            (1, 1),
+            (2, 3),
+            (244, 12),
+            (352, 12),
+            (388, 12),
+            (424, 12),
+        ]
+
+        output_string = ""
+        for r in read_registers:
+            # Immitate the way eporter-ecoadapt.py script is logging the data
+            output_string += f"\n{r}: ReadRegisterResponse ({r[1]}): {self.generate_register_data(r[0], r[1])}"
+        return output_string
+
+    def send_ecoadapt_data(self):
+        # Try to set up MODBUS client to read data from sensor
+        log.info("Setting up MODBUS client")
+        modbus_client = ModbusClient(ADDRESS, port=502)
+        modbus_client.connect()
+
+        # If MODBUS client is connected, hardware is there
+        if modbus_client.connect():
+            # Read Eco-Adapt sensor data and send encoded WebSocket message every 1s
+            log.info("Hardware connected, sending real data")
+            self.sendMessage(self.read_ecoadapt_data(modbus_client).encode("utf-8"))
+            self.factory.loop.call_later(1, self.send_ecoadapt_data)
+            log.info("Closing MODBUS client")
+            modbus_client.close()
+        # Else  MODBUS client connect = False -> no hardware detected with the given IP
+        else:
+            # Generate mock data and send encoded WebSocket message every 1s
+            log.info(f"Hardware with IP {ADDRESS} not connected, sending mock data")
+            self.sendMessage(self.ecoadapt_mock_data().encode("utf-8"))
+            self.factory.loop.call_later(1, self.send_ecoadapt_data)
+
     def onConnect(self, response):
-        print("Server connected: {0}".format(response.peer))
-        return None
+            print("Server connected: {0}".format(response.peer))
+            return None
 
     def onConnecting(self, transport_details):
         print("Connecting; transport details: {}".format(transport_details))
@@ -52,58 +141,9 @@ class MyClientProtocol(WebSocketClientProtocol):
 
     def onOpen(self):
         print("WebSocket connection open.")
-
-        def generate_register_data(register, length):
-            # Generates random register data
-            # With hardware connected:
-            # resp = client.read_input_registers(register, length, unit=UNIT)
-            # output_array = resp.registers
-
-            output_array = []
-            if register == 0:
-                output_array = [514]
-            elif register == 1:
-                output_array = [2]
-            elif register == 2:
-                output_array = [30, 44285, 17639]
-            elif register == 244:
-                for i in range(length):
-                    output_array.append(0)
-            elif register == 352 or register == 388 or register == 424:
-                for i in range(int(length / 2)):
-                    output_array.append(randrange(15000, 55000))
-                for j in range(int(length / 2)):
-                    output_array.append(0)
-            else:
-                output_array = [0]
-            return output_array
-
-        def ecoadapt_mock_data():
-            # Reads registers and length of each register and generates random data
-
-            read_registers = [
-                (0, 1),
-                (1, 1),
-                (2, 3),
-                (244, 12),
-                (352, 12),
-                (388, 12),
-                (424, 12),
-            ]
-
-            output_string = ""
-            for r in read_registers:
-                output_string += f"\n{r}: ReadRegisterResponse ({r[1]}): {generate_register_data(r[0], r[1])}"
-            return output_string
-
-        def send_ecoadapt_data():
-            # The client (Raspberry Pi bridge / gateway) sends the Eco-Adapt data to the backend server as an encoded WebSocket message every 1s
-            self.sendMessage("Hello from client".encode("utf-8"))
-            self.sendMessage(ecoadapt_mock_data().encode("utf-8"))
-            self.factory.loop.call_later(1, send_ecoadapt_data)
-
+        self.sendMessage("Hello from client".encode("utf-8"))
         # start sending messages every second ...
-        send_ecoadapt_data()
+        self.send_ecoadapt_data()
 
     def onMessage(self, payload, isBinary):
         if isBinary:
