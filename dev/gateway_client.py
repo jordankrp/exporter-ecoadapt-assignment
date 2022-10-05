@@ -47,6 +47,27 @@ log.setLevel(logging.INFO)
 
 
 class MyClientProtocol(WebSocketClientProtocol):
+    def generate_register_data(self, register, length):
+        # Generates random register data
+        output_array = []
+        if register == 0:
+            output_array = [514]
+        elif register == 1:
+            output_array = [2]
+        elif register == 2:
+            output_array = [30, 44285, 17639]
+        elif register == 244:
+            for i in range(length):
+                output_array.append(0)
+        elif register == 352 or register == 388 or register == 424:
+            for i in range(int(length / 2)):
+                output_array.append(randrange(15000, 55000))
+            for j in range(int(length / 2)):
+                output_array.append(0)
+        else:
+            output_array = [0]
+        return output_array
+
     def read_ecoadapt_data(self, modbus_client):
         # Reads the Eco-Adapt data
 
@@ -82,27 +103,6 @@ class MyClientProtocol(WebSocketClientProtocol):
                 output_string += f"\n{r}: ReadRegisterResponse ({r[1]}): {self.generate_register_data(r[0], r[1])}"
 
         return output_string
-
-    def generate_register_data(self, register, length):
-        # Generates random register data
-        output_array = []
-        if register == 0:
-            output_array = [514]
-        elif register == 1:
-            output_array = [2]
-        elif register == 2:
-            output_array = [30, 44285, 17639]
-        elif register == 244:
-            for i in range(length):
-                output_array.append(0)
-        elif register == 352 or register == 388 or register == 424:
-            for i in range(int(length / 2)):
-                output_array.append(randrange(15000, 55000))
-            for j in range(int(length / 2)):
-                output_array.append(0)
-        else:
-            output_array = [0]
-        return output_array
 
     def send_ecoadapt_data(self):
         # Try to set up MODBUS client to read data from sensor
